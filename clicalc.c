@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <string.h>
 #include <stdbool.h>
 
@@ -44,12 +45,26 @@ void checkMalloc(void *ptr) {
     }
 }
 
+void checkTokens(Token* ptr, int size) {
+    for(int i = 0; i < size; i++) {
+        if(ptr[i].isNum) {
+            printf("%f", ptr[i].num);
+        } else {
+            printf("%c", ptr[i].op);
+        }
+    }
+    printf("\n");
+}
+
 int getPrecedence(char op) {
     switch(op) {
         case '+': return 1;
         case '-': return 1;
         case '*': return 2;
         case '/': return 2;
+        case '_': return 3;
+        case '^': return 4;
+        case '~': return 5;
         default: return -1;
     }
 }
@@ -65,7 +80,26 @@ int in2postfix(char *infix, Token *result, int size) {
 
         if(c == ' ' || c == '\t') { continue; }
 
-        if(isdigit(c) || c == '.') {
+        if(c == '-') {
+            if(resIndex == 0) { 
+                c = '_';
+            } else {
+                char d = ' ';
+                for(int j = i - 1; j >= 0; j--) {
+                    if(infix[j] != ' ') {
+                        d = infix[j];
+                        break;
+                    }
+                }
+                if(d == '^') { 
+                    c = '~';
+                } else if(d == '(' || (isdigit(d) == false && d != ')')) { 
+                    c = '_'; 
+                }
+            }
+        }
+
+        if(isdigit(c)) {
             char *end;
             result[resIndex].num = strtod(infix + i, &end);
             result[resIndex].isNum = true;
@@ -73,26 +107,26 @@ int in2postfix(char *infix, Token *result, int size) {
             i = (int)(end - infix) - 1;
             continue;
         }
-         switch(c) {
-             case '(':
-                 push(&stack, c);
-                 break;
-             case ')':
-                 while(!isEmpty(&stack) && peek(&stack) != '(') {
-                     result[resIndex].op = pop(&stack);
-                     result[resIndex].isNum = false;
-                     resIndex++;
-                 }
-                 pop(&stack);
-                 break;
-             default: 
-                 while(!isEmpty(&stack) && getPrecedence(c) <= getPrecedence(peek(&stack))) {
-                     result[resIndex].op = pop(&stack);
-                     result[resIndex].isNum = false;
-                     resIndex++;
-                 }
-                 push(&stack, c);
-         }
+        switch(c) {
+            case '(':
+                push(&stack, c);
+                break;
+            case ')':
+                while(!isEmpty(&stack) && peek(&stack) != '(') {
+                    result[resIndex].op = pop(&stack);
+                    result[resIndex].isNum = false;
+                    resIndex++;
+                }
+                pop(&stack);
+                break;
+            default: 
+                while(!isEmpty(&stack) && getPrecedence(c) <= getPrecedence(peek(&stack))) {
+                    result[resIndex].op = pop(&stack);
+                    result[resIndex].isNum = false;
+                    resIndex++;
+                }
+                push(&stack, c);
+        }
     }
 
     while (!isEmpty(&stack)) {
@@ -114,6 +148,12 @@ int buildOperationTree(Token *postfix, int size, Operation *root) {
         return size; 
     }
     
+    if(token->op == '~' || token->op == '_') {
+        root->rightOp = malloc(sizeof(Operation));
+        checkMalloc(root->rightOp);
+        return buildOperationTree(postfix, size - 1, root->rightOp);
+    }
+    
     root->rightOp = malloc(sizeof(Operation));
     root->leftOp = malloc(sizeof(Operation));
     checkMalloc(root->rightOp);
@@ -130,16 +170,19 @@ double calcTree(Operation *root) {
         return root->value->num;
     }
 
+    if(root->value->op == '~' || root->value->op == '_') {
+        return -calcTree(root->rightOp);
+    }
+
     double leftResult = calcTree(root->leftOp);
     double rightResult = calcTree(root->rightOp);
-//   free(root->leftOp);
-//   free(root->rightOp);
 
     switch(root->value->op) {
         case '+': return leftResult + rightResult;
         case '-': return leftResult - rightResult;
         case '*': return leftResult * rightResult;
         case '/': return leftResult / rightResult;
+        case '^': return pow(leftResult, rightResult);
         default: 
             printf("Something went wrong here...");
             exit(1);
@@ -150,6 +193,7 @@ void calculate(char *input) {
     int size = strlen(input);
     Token tokens[size];
     int trueSize = in2postfix(input, tokens, size);
+//   checkTokens(tokens, trueSize);
     
     Operation mainOp;
     buildOperationTree(tokens, trueSize, &mainOp);
