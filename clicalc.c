@@ -62,9 +62,11 @@ int getPrecedence(char op) {
         case '-': return 1;
         case '*': return 2;
         case '/': return 2;
-        case '_': return 3;
+        case '%': return 2;
+        case '_': return 3; // unary minus
         case '^': return 4;
-        case '~': return 5;
+        case '~': return 5; // unary minus, but directly after exponent to not mess up postfix
+        case '!': return 6;
         default: return -1;
     }
 }
@@ -80,7 +82,7 @@ int in2postfix(char *infix, Token *result, int size) {
 
         if(c == ' ' || c == '\t') { continue; }
 
-        if(c == '-') {
+        if(c == '-') { //messed up unary minus
             if(resIndex == 0) { 
                 c = '_';
             } else {
@@ -93,7 +95,7 @@ int in2postfix(char *infix, Token *result, int size) {
                 }
                 if(d == '^') { 
                     c = '~';
-                } else if(d == '(' || (isdigit(d) == false && d != ')')) { 
+                } else if(d == '(' || (isdigit(d) == false && d != ')' && d != '!')) { 
                     c = '_'; 
                 }
             }
@@ -107,8 +109,25 @@ int in2postfix(char *infix, Token *result, int size) {
             i = (int)(end - infix) - 1;
             continue;
         }
-        switch(c) {
+        switch(c) { //basic operations
             case '(':
+                if(resIndex != 0) { //omit *
+                    char d = ' ';
+                    for(int j = i - 1; j >= 0; j--) {
+                        if(infix[j] != ' ') {
+                            d = infix[j];
+                            break;
+                        }
+                    }
+                    if(isdigit(d) || d == ')' || d == '!') {
+                        while(!isEmpty(&stack) && getPrecedence('*') <= getPrecedence(peek(&stack))) {
+                            result[resIndex].op = pop(&stack);
+                            result[resIndex].isNum = false;
+                            resIndex++;
+                        }
+                        push(&stack, '*');
+                    }
+                }
                 push(&stack, c);
                 break;
             case ')':
@@ -148,7 +167,7 @@ int buildOperationTree(Token *postfix, int size, Operation *root) {
         return size; 
     }
     
-    if(token->op == '~' || token->op == '_') {
+    if(token->op == '~' || token->op == '_' || token->op == '!') {
         root->rightOp = malloc(sizeof(Operation));
         checkMalloc(root->rightOp);
         return buildOperationTree(postfix, size - 1, root->rightOp);
@@ -174,6 +193,14 @@ double calcTree(Operation *root) {
         return -calcTree(root->rightOp);
     }
 
+    if(root->value->op == '!') {
+        double result = 1;
+        for(int i = (int) calcTree(root->rightOp); i > 0; i--) {
+            result *= i;
+        }
+        return result;
+    }
+
     double leftResult = calcTree(root->leftOp);
     double rightResult = calcTree(root->rightOp);
 
@@ -182,6 +209,7 @@ double calcTree(Operation *root) {
         case '-': return leftResult - rightResult;
         case '*': return leftResult * rightResult;
         case '/': return leftResult / rightResult;
+        case '%': return (int) leftResult % (int) rightResult;
         case '^': return pow(leftResult, rightResult);
         default: 
             printf("Something went wrong here...");
@@ -199,7 +227,7 @@ void calculate(char *input) {
     buildOperationTree(tokens, trueSize, &mainOp);
 
     double result = calcTree(&mainOp);
-    if (mainOp.value->op != '~' && mainOp.value->op != '_') {
+    if (!mainOp.value->isNum && mainOp.value->op != '~' && mainOp.value->op != '_' && mainOp.value->op != '!') {
         free(mainOp.leftOp);
     }
     free(mainOp.rightOp);
