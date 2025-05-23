@@ -199,7 +199,9 @@ void calculate(char *input) {
     buildOperationTree(tokens, trueSize, &mainOp);
 
     double result = calcTree(&mainOp);
-    free(mainOp.leftOp);
+    if (mainOp.value->op != '~' && mainOp.value->op != '_') {
+        free(mainOp.leftOp);
+    }
     free(mainOp.rightOp);
     printf("Result: %f\n", result);
 
