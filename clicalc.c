@@ -5,6 +5,8 @@
 #include <string.h>
 #include <stdbool.h>
 
+#define SQRT 1716
+
 #include "stack.c"
 
 typedef struct { 
@@ -65,6 +67,7 @@ int getPrecedence(char op) {
         case '%': return 2;
         case '_': return 3; // unary minus
         case '^': return 4;
+        case 'r': return 4;
         case '~': return 5; // unary minus, but directly after exponent to not mess up postfix
         case '!': return 6;
         default: return -1;
@@ -99,6 +102,45 @@ int in2postfix(char *infix, Token *result, int size) {
                     c = '_'; 
                 }
             }
+        }
+
+        if(c == '_') {
+            if(resIndex != 0) { //omit *
+                char d = ' ';
+                for(int j = i - 1; j >= 0; j--) {
+                    if(infix[j] != ' ') {
+                        d = infix[j];
+                        break;
+                    }
+                }
+                if(isdigit(d) || d == ')' || d == '!') {
+                    while(!isEmpty(&stack) && getPrecedence('*') <= getPrecedence(peek(&stack))) {
+                        result[resIndex].op = pop(&stack);
+                        result[resIndex].isNum = false;
+                        resIndex++;
+                    }
+                    push(&stack, '*');
+                }
+            }
+            int cmdId = 0;
+            while(infix[++i] != '(' && i < size) { // weird way not to switch strings
+                cmdId *= 2;
+                cmdId += infix[i];
+            }
+            switch (cmdId) {
+                case SQRT: 
+                    while(!isEmpty(&stack) && getPrecedence('r') <= getPrecedence(peek(&stack))) {
+                        result[resIndex].op = pop(&stack);
+                        result[resIndex].isNum = false;
+                        resIndex++;
+                    }
+                    push(&stack, 'r');
+                    break;
+                default:
+                    printf("syntax error!\n");
+            }
+            i--;
+            continue;
         }
 
         if(isdigit(c)) {
@@ -167,9 +209,11 @@ int buildOperationTree(Token *postfix, int size, Operation *root) {
         return size; 
     }
     
-    if(token->op == '~' || token->op == '_' || token->op == '!') {
+    char op = token->op;
+    if(op == '~' || op == '_' || op == '!' || op == 'r') {
         root->rightOp = malloc(sizeof(Operation));
         checkMalloc(root->rightOp);
+        root->leftOp = malloc(1); //dummy malloc so I dont have to check unaries before freeing in calc
         return buildOperationTree(postfix, size - 1, root->rightOp);
     }
     
@@ -189,16 +233,21 @@ double calcTree(Operation *root) {
         return root->value->num;
     }
 
-    if(root->value->op == '~' || root->value->op == '_') {
+    char op = root->value->op;
+    if(op == '~' || op == '_') {
         return -calcTree(root->rightOp);
     }
 
-    if(root->value->op == '!') {
+    if(op == '!') {
         double result = 1;
         for(int i = (int) calcTree(root->rightOp); i > 0; i--) {
             result *= i;
         }
         return result;
+    }
+
+    if(op == 'r') {
+        return sqrt(calcTree(root->rightOp));
     }
 
     double leftResult = calcTree(root->leftOp);
@@ -227,9 +276,8 @@ void calculate(char *input) {
     buildOperationTree(tokens, trueSize, &mainOp);
 
     double result = calcTree(&mainOp);
-    if (!mainOp.value->isNum && mainOp.value->op != '~' && mainOp.value->op != '_' && mainOp.value->op != '!') {
-        free(mainOp.leftOp);
-    }
+    char op = mainOp.value->op;
+    free(mainOp.leftOp);
     free(mainOp.rightOp);
     printf("Result: %f\n", result);
 
