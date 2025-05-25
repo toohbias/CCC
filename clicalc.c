@@ -8,6 +8,13 @@
 #include "stack.c"
 
 #define SQRT 1716
+#define RT 344
+#define ABS 699
+#define SIN 780
+#define COS 733
+#define TAN 768
+#define LN 326
+#define LOG 757
 
 typedef struct { 
     bool isNum;
@@ -46,6 +53,11 @@ bool isUnary(char c) {
         case '~': return true;
         case '!': return true;
         case 'r': return true;
+        case 'a': return true;
+        case 's': return true;
+        case 'c': return true;
+        case 't': return true;
+        case 'l': return true;
         default: return false;
     }
 }
@@ -59,8 +71,15 @@ int getPrecedence(char op) {
         case '/': return 2;
         case '%': return 2;
         case '^': return 3;
-        case 'r': return 3;
         case '!': return 4;
+        case 'r': return 5;
+        case 'R': return 5;
+        case 'a': return 5;
+        case 's': return 5;
+        case 'c': return 5;
+        case 't': return 5;
+        case 'l': return 5;
+        case 'L': return 5;
         default: return -1;
     }
 }
@@ -93,14 +112,35 @@ int in2postfix(char *infix, Token *result, int size) {
         if(c == '_') { //multi-char operations starting with _
             omitMult(&resIndex, d, &stack, result);
             int cmdId = 0;
-            while(infix[++i] != '(' && i < size) { // weird way not to switch strings
+            while(infix[++i] != '(' && infix[i] != '_' && i < size) { // weird way not to switch strings
                 cmdId *= 2;
                 cmdId += infix[i];
             }
             switch (cmdId) {
-                case SQRT: 
-                    push(&stack, 'r');
+                case SQRT: push(&stack, 'r'); break;
+                case RT: {
+                    char *end;
+                    result[resIndex].num = strtod(infix + ++i, &end);
+                    result[resIndex].isNum = true;
+                    resIndex++;
+                    i = (int)(end - infix);
+                    push(&stack, 'R');
                     break;
+                }
+                case ABS: push(&stack, 'a'); break;
+                case SIN: push(&stack, 's'); break;
+                case COS: push(&stack, 'c'); break;
+                case TAN: push(&stack, 't'); break;
+                case LN: push(&stack, 'l'); break;
+                case LOG: {
+                    char *end;
+                    result[resIndex].num = strtod(infix + ++i, &end);
+                    result[resIndex].isNum = true;
+                    resIndex++;
+                    i = (int)(end - infix);
+                    push(&stack, 'L');
+                    break;
+                }
                 default:
                     printf("syntax error!\n");
             }
@@ -139,6 +179,11 @@ int in2postfix(char *infix, Token *result, int size) {
                     resIndex++;
                 }
                 pop(&stack);
+                while(!isEmpty(&stack) && getPrecedence(peek(&stack)) == 5) {
+                    result[resIndex].op = pop(&stack);
+                    result[resIndex].isNum = false;
+                    resIndex++;
+                }
                 break;
             default: 
                 if(!isUnary(c)) {
@@ -146,9 +191,9 @@ int in2postfix(char *infix, Token *result, int size) {
                         result[resIndex].op = pop(&stack);
                         result[resIndex].isNum = false;
                         resIndex++;
-                    }
-                }
-                push(&stack, c);
+                    }              
+                }                
+                push(&stack, c); 
         }
         d = c;
     }
@@ -177,7 +222,7 @@ int buildOperationTree(Token *postfix, int size, Operation *root) {
     
     char op = token->op;
     if(isUnary(op)) {
-        root->leftOp = malloc(1); //dummy malloc so I dont have to check unaries before freeing in calc
+        root->leftOp = malloc(1);
         return buildOperationTree(postfix, size - 1, root->rightOp);
     } else {
         root->leftOp = malloc(sizeof(Operation));
@@ -210,6 +255,7 @@ double calcTree(Operation *root) {
         case '%': return (int) leftResult % (int) rightResult;
         case '^': return pow(leftResult, rightResult);
         case 'r': return sqrt(rightResult);
+        case 'R': return pow(rightResult, (1 / leftResult));
         case '!': {
             double result = 1;
             for(int i = (int) calcTree(root->rightOp); i > 0; i--) {
@@ -217,6 +263,12 @@ double calcTree(Operation *root) {
             }
             return result;
         }
+        case 'a': return fabs(rightResult);
+        case 's': return sin(rightResult);
+        case 'c': return cos(rightResult);
+        case 't': return tan(rightResult);
+        case 'l': return log(rightResult);
+        case 'L': return log2(rightResult) / log2(leftResult);
         default: 
             printf("Something went wrong here...");
             exit(1);
@@ -227,17 +279,15 @@ void calculate(char *input) {
     int size = strlen(input);
     Token tokens[size];
     int trueSize = in2postfix(input, tokens, size);
-//    checkTokens(tokens, trueSize);
+ //   checkTokens(tokens, trueSize);
     
     Operation mainOp;
     buildOperationTree(tokens, trueSize, &mainOp);
 
     double result = calcTree(&mainOp);
-    char op = mainOp.value->op;
     free(mainOp.leftOp);
     free(mainOp.rightOp);
     printf("Result: %f\n", result);
-
 }
 
 
@@ -253,4 +303,3 @@ int main(void) {
     }
     return 0;
 }
-
