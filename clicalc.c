@@ -16,6 +16,9 @@
 #define LN 326
 #define LOG 757
 
+#define PI 233
+#define E 69
+
 typedef struct { 
     bool isNum;
     union {
@@ -112,7 +115,7 @@ int in2postfix(char *infix, Token *result, int size) {
         if(c == '_') { //multi-char operations starting with _
             omitMult(&resIndex, d, &stack, result);
             int cmdId = 0;
-            while(infix[++i] != '(' && infix[i] != '_' && i < size) { // weird way not to switch strings
+            while(isalpha(infix[++i])) { // weird way not to switch strings
                 cmdId *= 2;
                 cmdId += infix[i];
             }
@@ -139,6 +142,18 @@ int in2postfix(char *infix, Token *result, int size) {
                     resIndex++;
                     i = (int)(end - infix);
                     push(&stack, 'L');
+                    break;
+                }
+                case PI: {
+                    result[resIndex].num = M_PI;
+                    result[resIndex].isNum = true;
+                    resIndex++;
+                    break;
+                }
+                case E: {
+                    result[resIndex].num = M_E;
+                    result[resIndex].isNum = true;
+                    resIndex++;
                     break;
                 }
                 default:
