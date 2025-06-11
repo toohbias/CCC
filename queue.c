@@ -34,10 +34,3 @@ void enqueue(Queue *queue, char *value) {
     queue->size++;
 }
 
-void printQueue(Queue *queue) {
-    if(queue->size != 0) {
-        for(int i = 0; i < queue->size; i++) {
-            printf("%s\n", queue->arr[(queue->front + i) % queue->capacity]);
-        }
-    }
-}

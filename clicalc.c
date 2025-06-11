@@ -20,6 +20,7 @@
 #define M 109
 
 #define SIMPLE 6997
+#define FUNCTION 27328
 
 #define SQRT 1716
 #define RT 344
@@ -35,7 +36,9 @@
 
 typedef struct { 
     bool isNum;
+    bool isX;
     union {
+        double *x;
         double num;
         char op;
     };
@@ -47,10 +50,22 @@ typedef struct Operation {
     struct Operation *rightOp;
 } Operation;
 
+typedef struct {
+    double min_x;
+    double max_x;
+    double step;
+    double *values;
+    double min_y;
+    double max_y;
+    int size;
+} Table;
+
 typedef struct Command {
     int value;
     struct Command *next;
 } Command;
+
+double global_x = 1; // has to be global, for the pointers
 
 void checkMalloc(void *ptr) {
     if(!ptr) {
@@ -62,7 +77,11 @@ void checkMalloc(void *ptr) {
 void checkTokens(Token* ptr, int size) {
     for(int i = 0; i < size; i++) {
         if(ptr[i].isNum) {
-            printf("%f", ptr[i].num);
+            if(!ptr[i].isX) {
+                printf("%.3f", ptr[i].num);
+            } else {
+                printf("x");
+            }
         } else {
             printf("%c", ptr[i].op);
         }
@@ -108,7 +127,7 @@ int getPrecedence(char op) {
 
 void omitMult(int *resIndex, char d, Stack *stack, Token *result) {
     if(*resIndex != 0) { 
-        if(isdigit(d) || d == ')' || d == '!') {
+        if(isdigit(d) || d == ')' || d == '!' || d == 'x') {
             while(!isStackEmpty(stack) && getPrecedence('*') <= getPrecedence(peek(stack))) {
                 result[*resIndex].op = pop(stack);
                 result[*resIndex].isNum = false;
@@ -130,6 +149,16 @@ int in2postfix(char *infix, Token *result, int size) {
         char c = infix[i];
 
         if(c == ' ' || c == '\t') { continue; }
+
+        if(c == 'x') {
+            omitMult(&resIndex, d, &stack, result);
+            result[resIndex].x = &global_x;
+            result[resIndex].isX = true;
+            result[resIndex].isNum = true;
+            resIndex++;
+            d = 'x';
+            continue;
+        }
 
         if(c == '_') { //multi-char operations starting with _
             omitMult(&resIndex, d, &stack, result);
@@ -269,7 +298,11 @@ int buildOperationTree(Token *postfix, int size, Operation *root) {
 
 double calcTree(Operation *root) {
     if(root->value->isNum) {
-        return root->value->num;
+        if(!root->value->isX) {
+            return root->value->num;
+        } else {
+            return *root->value->x;
+        }
     }
 
     double rightResult = calcTree(root->rightOp);
@@ -307,21 +340,6 @@ double calcTree(Operation *root) {
             printf("Something went wrong here...\n");
             exit(1);
     }
-}
-
-double calculate(char *input) {
-    int size = strlen(input);
-    Token tokens[size];
-    int trueSize = in2postfix(input, tokens, size);
- //   checkTokens(tokens, trueSize);
-    
-    Operation mainOp;
-    buildOperationTree(tokens, trueSize, &mainOp);
-
-    double result = calcTree(&mainOp);
-    free(mainOp.leftOp);
-    free(mainOp.rightOp);
-    return result;
 }
 
 void tokenizeCmd(Command *cmd, char *input) {
@@ -363,6 +381,9 @@ int main(void) {
     int precision = 3;
 
     while(1) {
+        if(current_mode == FUNCTION) {
+            printf("f(x) = ");
+        }
         fgets(input, MAX_LENGTH, stdin);
         if(input[0] == '\n') { continue; }
 
@@ -389,10 +410,9 @@ int main(void) {
                 }
                 // see last 5 searches
                 case HIST: {
-                    printQueue(&history);
                     if(history.size != 0) {
                         for(int i = 0; i < history.size; i++) {
-                            printf("%s\t= %s\n", 
+                            printf("%s= %s\n", 
                                    results.arr[(results.front + i) % results.capacity],
                                    history.arr[(history.front + i) % history.capacity]);
                         }
@@ -405,6 +425,7 @@ int main(void) {
                     int cmdId = cmd.next->value;
                     switch (cmdId) {
                         case SIMPLE: current_mode = SIMPLE; continue;
+                        case FUNCTION: current_mode = FUNCTION; continue;
                         default: printf("mode doesn't exist!\n"); continue;
                     }
                 } 
@@ -414,12 +435,83 @@ int main(void) {
 
         switch (current_mode) {
             case SIMPLE: {
-                double result = calculate(input);
+                // tokenize input
+                Token tokens[len + 5]; // buffer for e.g. omitted mult
+                int trueSize = in2postfix(input, tokens, len - 1);
+
+                // create syntax tree
+                Operation mainOp;
+                buildOperationTree(tokens, trueSize, &mainOp);
+
+                // evaluate tree
+                double result = calcTree(&mainOp);
+                free(mainOp.leftOp);
+                free(mainOp.rightOp);
+
+                // history stuff
                 char *resultStr = malloc(25 * sizeof(char));
-                sprintf(resultStr, "%.*f", precision, result);
+                sprintf(resultStr, "%.*f\t", precision, result);
                 enqueue(&history, input);
                 enqueue(&results, resultStr);
+
                 printf("Result: %s\n", resultStr);
+                break;
+            }
+            case FUNCTION: {
+                // tokenize input
+                Token tokens[len + 5]; // buffer for e.g. omitted mult
+                int trueSize = in2postfix(input, tokens, len - 1);
+
+                // create syntax tree
+                Operation mainOp;
+                buildOperationTree(tokens, trueSize, &mainOp);
+
+                // ask user for domain and increment of x
+                Table t;
+                char info[5];
+
+                printf("min x?\t");
+                fgets(info, 5, stdin);
+                t.min_x = strtod(info, NULL);
+
+                printf("max x?\t");
+                fgets(info, 5, stdin);
+                t.max_x = strtod(info, NULL);
+
+                printf("step?\t");
+                fgets(info, 5, stdin);
+                t.step = strtod(info, NULL);
+
+                // make a table
+                t.size = (t.max_x - t.min_x) / t.step;
+                t.values = malloc(t.size * sizeof(double));
+
+                printf("\n x\t│ y\n");
+                printf("────────┼────────\n");
+                int a = 0;
+                for(double i = t.min_x; i <= t.max_x; i += t.step) {
+                    global_x = i;
+                    t.values[a] = calcTree(&mainOp);
+                    printf(" %.*f\t│ %.*f\n", precision, i, precision, t.values[a]);
+                    if(a == 0) {
+                        t.min_y = t.values[a];
+                        t.max_y = t.values[a];
+                    } else {
+                        t.min_y = t.values[a] < t.min_y ? t.values[a] : t.min_y;
+                        t.max_y = t.values[a] > t.max_y ? t.values[a] : t.max_y;
+                    }
+                    a++;
+                }
+                printf("\n");
+                free(mainOp.leftOp);
+                free(mainOp.rightOp);
+
+                // history stuff
+                char *resultStr = malloc(25 * sizeof(char));
+                sprintf(resultStr, "%.3f < x < %.3f  x+=%.3f  f(x) ", t.min_x, t.max_x, t.step);
+                enqueue(&history, input);
+                enqueue(&results, resultStr);
+
                 break;
             }
             default: printf("Something has gone horribly wrong!\n");
