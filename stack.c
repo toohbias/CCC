@@ -8,22 +8,22 @@ typedef struct {
     int top;
 } Stack;
 
-void init(Stack *stack, int size) {
+void initStack(Stack *stack, int size) {
     stack->size = size;
     stack->arr = malloc(size * sizeof(char));
     stack->top = -1;
 }
 
-bool isEmpty(Stack *stack) {
+bool isStackEmpty(Stack *stack) {
     return stack->top == -1;
 }
 
-bool isFull(Stack *stack) {
+bool isStackFull(Stack *stack) {
     return stack->top == stack->size - 1;
 }
 
 void push(Stack *stack, char value) {
-    if(isFull(stack)) {
+    if(isStackFull(stack)) {
         printf("Stack Overflow\n");
         return;
     }
@@ -31,7 +31,7 @@ void push(Stack *stack, char value) {
 }
 
 char peek(Stack *stack) {
-    if(isEmpty(stack)) {
+    if(isStackEmpty(stack)) {
         printf("Stack Underflow\n");
         return -1;
     }

@@ -4,7 +4,7 @@ C Cli Calculator inspired by [@Ashefromapex](https://github.com/Ashefromapex/ccc
 
 ...but what is expr??
 
-> [!TODO]
+> **TODO**
 >
 > - [x] basic operations with precedence
 > - [x] parentheses
