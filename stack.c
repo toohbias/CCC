@@ -14,16 +14,16 @@ void initStack(Stack *stack, int size) {
     stack->top = -1;
 }
 
-bool isStackEmpty(Stack *stack) {
+bool isEmpty(Stack *stack) {
     return stack->top == -1;
 }
 
-bool isStackFull(Stack *stack) {
+bool isFull(Stack *stack) {
     return stack->top == stack->size - 1;
 }
 
 void push(Stack *stack, char value) {
-    if(isStackFull(stack)) {
+    if(isFull(stack)) {
         printf("Stack Overflow\n");
         return;
     }
@@ -31,7 +31,7 @@ void push(Stack *stack, char value) {
 }
 
 char peek(Stack *stack) {
-    if(isStackEmpty(stack)) {
+    if(isEmpty(stack)) {
         printf("Stack Underflow\n");
         return -1;
     }

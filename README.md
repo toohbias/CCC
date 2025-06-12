@@ -20,6 +20,5 @@ C Cli Calculator inspired by [@Ashefromapex](https://github.com/Ashefromapex/ccc
 - [x] function mode
 - [ ] statistics mode
 - [x] add variable support
-- [ ] add plots
-  - unicode block?
+- [x] add plots
 

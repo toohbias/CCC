@@ -7,6 +7,7 @@
 
 #include "stack.c"
 #include "queue.c"
+#include "plot.c"
 
 #define MAX_LENGTH 50
 
@@ -21,6 +22,7 @@
 
 #define SIMPLE 6997
 #define FUNCTION 27328
+#define F 102
 
 #define SQRT 1716
 #define RT 344
@@ -49,16 +51,6 @@ typedef struct Operation {
     struct Operation *leftOp;
     struct Operation *rightOp;
 } Operation;
-
-typedef struct {
-    double min_x;
-    double max_x;
-    double step;
-    double *values;
-    double min_y;
-    double max_y;
-    int size;
-} Table;
 
 typedef struct Command {
     int value;
@@ -128,7 +120,7 @@ int getPrecedence(char op) {
 void omitMult(int *resIndex, char d, Stack *stack, Token *result) {
     if(*resIndex != 0) { 
         if(isdigit(d) || d == ')' || d == '!' || d == 'x') {
-            while(!isStackEmpty(stack) && getPrecedence('*') <= getPrecedence(peek(stack))) {
+            while(!isEmpty(stack) && getPrecedence('*') <= getPrecedence(peek(stack))) {
                 result[*resIndex].op = pop(stack);
                 result[*resIndex].isNum = false;
                 *resIndex = *resIndex + 1;
@@ -236,13 +228,13 @@ int in2postfix(char *infix, Token *result, int size) {
                 push(&stack, c);
                 break;
             case ')':
-                while(!isStackEmpty(&stack) && peek(&stack) != '(') {
+                while(!isEmpty(&stack) && peek(&stack) != '(') {
                     result[resIndex].op = pop(&stack);
                     result[resIndex].isNum = false;
                     resIndex++;
                 }
                 pop(&stack);
-                while(!isStackEmpty(&stack) && getPrecedence(peek(&stack)) == 5) {
+                while(!isEmpty(&stack) && getPrecedence(peek(&stack)) == 5) {
                     result[resIndex].op = pop(&stack);
                     result[resIndex].isNum = false;
                     resIndex++;
@@ -250,7 +242,7 @@ int in2postfix(char *infix, Token *result, int size) {
                 break;
             default: 
                 if(!isUnary(c)) {
-                    while(!isStackEmpty(&stack) && getPrecedence(c) <= getPrecedence(peek(&stack))) {
+                    while(!isEmpty(&stack) && getPrecedence(c) <= getPrecedence(peek(&stack))) {
                         result[resIndex].op = pop(&stack);
                         result[resIndex].isNum = false;
                         resIndex++;
@@ -261,7 +253,7 @@ int in2postfix(char *infix, Token *result, int size) {
         d = c;
     }
 
-    while (!isStackEmpty(&stack)) {
+    while (!isEmpty(&stack)) {
         result[resIndex].op = pop(&stack);
         result[resIndex].isNum = false;
         resIndex++;
@@ -277,6 +269,8 @@ int buildOperationTree(Token *postfix, int size, Operation *root) {
 
     root->value = token;
     if(token->isNum) { 
+        root->rightOp = malloc(1); // make free() not throw segfault
+        root->leftOp = malloc(1);
         return size; 
     }
 
@@ -349,6 +343,7 @@ void tokenizeCmd(Command *cmd, char *input) {
         cmd->value = (int) strtod(input, &end);
         if(*end != '\0') {
             cmd->next = malloc(sizeof(Command));
+            checkMalloc(cmd->next);
             tokenizeCmd(cmd->next, end);
         }
     } else {
@@ -362,6 +357,7 @@ void tokenizeCmd(Command *cmd, char *input) {
         cmd->value = cmdId;
         if(c != '\0') {
             cmd->next = malloc(sizeof(Command));
+            checkMalloc(cmd->next);
             tokenizeCmd(cmd->next, &input[i] + 1);
         }
     }
@@ -450,6 +446,7 @@ int main(void) {
 
                 // history stuff
                 char *resultStr = malloc(25 * sizeof(char));
+                checkMalloc(resultStr);
                 sprintf(resultStr, "%.*f\t", precision, result);
                 enqueue(&history, input);
                 enqueue(&results, resultStr);
@@ -457,6 +454,7 @@ int main(void) {
                 printf("Result: %s\n", resultStr);
                 break;
             }
+            case F:
             case FUNCTION: {
                 // tokenize input
                 Token tokens[len + 5]; // buffer for e.g. omitted mult
@@ -470,24 +468,24 @@ int main(void) {
                 Table t;
                 char info[5];
 
-                printf("min x?\t");
+                printf("min x? ");
                 fgets(info, 5, stdin);
                 t.min_x = strtod(info, NULL);
 
-                printf("max x?\t");
+                printf("max x? ");
                 fgets(info, 5, stdin);
                 t.max_x = strtod(info, NULL);
 
-                printf("step?\t");
+                printf("step? ");
                 fgets(info, 5, stdin);
                 t.step = strtod(info, NULL);
 
                 // make a table
-                t.size = (t.max_x - t.min_x) / t.step;
-                t.values = malloc(t.size * sizeof(double));
+                t.size_x = (t.max_x - t.min_x) / t.step + 1;
+                t.values = malloc(t.size_x * sizeof(double));
+                checkMalloc(t.values);
 
-                printf("\n x\t│ y\n");
-                printf("────────┼────────\n");
+                printf("\n x\t│ y\n────────┼────────\n");
                 int a = 0;
                 for(double i = t.min_x; i <= t.max_x; i += t.step) {
                     global_x = i;
@@ -506,8 +504,16 @@ int main(void) {
                 free(mainOp.leftOp);
                 free(mainOp.rightOp);
 
+                // ask for plot
+                printf("plot? (y/n) ");
+                fgets(info, 5, stdin);
+                if(info[0] == 'y') {
+                    plot(&t);
+                }
+
                 // history stuff
                 char *resultStr = malloc(25 * sizeof(char));
+                checkMalloc(resultStr);
                 sprintf(resultStr, "%.3f < x < %.3f  x+=%.3f  f(x) ", t.min_x, t.max_x, t.step);
                 enqueue(&history, input);
                 enqueue(&results, resultStr);
