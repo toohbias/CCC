@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 typedef struct {
     double min_x;
@@ -14,11 +15,11 @@ typedef struct {
 } Table;
 
 int cx(Table *t, double relative) {
-    return (-t->min_x + relative) / t->step;
+    return round((-t->min_x + relative) / t->step);
 }
 
 int cy(Table *t, double relative) {
-    return (t->max_y - relative) / t->step;
+    return round((t->max_y - relative) / t->step);
 }
 
 void coord_sys(Table *t, uint8_t c[][t->size_x]) {
@@ -37,7 +38,7 @@ void coord_sys(Table *t, uint8_t c[][t->size_x]) {
 }
 
 void plot(Table *t) {
-    t->size_y = (t->max_y - t->min_y) / t->step + 2;
+    t->size_y = round((t->max_y - t->min_y) / t->step + 2);
 
     // init canvas
     uint8_t c[t->size_y][t->size_x];
@@ -49,13 +50,15 @@ void plot(Table *t) {
     // draw the points from the table
     int a = 0;
     for(double x = t->min_x; x < t->max_x; x += t->step) {
-        c[cy(t, t->values[a])][cx(t, x)] = 91;
+        double y = t->values[a];
         a++;
+        if(isnan(y) || isinf(y)) { continue; }
+        c[cy(t, y)][cx(t, x)] = 91;
     }
 
     // print canvas to screen
     printf("\n");
-    for(int h = 0; h < t->size_y; h += 2) {
+    for(int h = 0; h < t->size_y - 1; h += 2) {
         printf("  ");
         for(int w = 0; w < t->size_x; w++) {
             if(c[h][w] != 0 && c[h+1][w] != 0) {

@@ -21,6 +21,7 @@
 #define M 109
 
 #define SIMPLE 6997
+#define S 115
 #define FUNCTION 27328
 #define F 102
 
@@ -119,7 +120,7 @@ int getPrecedence(char op) {
 
 void omitMult(int *resIndex, char d, Stack *stack, Token *result) {
     if(*resIndex != 0) { 
-        if(isdigit(d) || d == ')' || d == '!' || d == 'x') {
+        if(isdigit(d) || d == ')' || d == '!' || d == 'x' || d == '.') {
             while(!isEmpty(stack) && getPrecedence('*') <= getPrecedence(peek(stack))) {
                 result[*resIndex].op = pop(stack);
                 result[*resIndex].isNum = false;
@@ -420,7 +421,9 @@ int main(void) {
                 case MODE: {
                     int cmdId = cmd.next->value;
                     switch (cmdId) {
+                        case S:
                         case SIMPLE: current_mode = SIMPLE; continue;
+                        case F:
                         case FUNCTION: current_mode = FUNCTION; continue;
                         default: printf("mode doesn't exist!\n"); continue;
                     }
@@ -454,7 +457,6 @@ int main(void) {
                 printf("Result: %s\n", resultStr);
                 break;
             }
-            case F:
             case FUNCTION: {
                 // tokenize input
                 Token tokens[len + 5]; // buffer for e.g. omitted mult
@@ -466,22 +468,22 @@ int main(void) {
 
                 // ask user for domain and increment of x
                 Table t;
-                char info[5];
+                char info[10];
 
                 printf("min x? ");
-                fgets(info, 5, stdin);
+                fgets(info, 10, stdin);
                 t.min_x = strtod(info, NULL);
 
                 printf("max x? ");
-                fgets(info, 5, stdin);
+                fgets(info, 10, stdin);
                 t.max_x = strtod(info, NULL);
 
                 printf("step? ");
-                fgets(info, 5, stdin);
+                fgets(info, 10, stdin);
                 t.step = strtod(info, NULL);
 
                 // make a table
-                t.size_x = (t.max_x - t.min_x) / t.step + 1;
+                t.size_x = round((t.max_x - t.min_x) / t.step + 1);
                 t.values = malloc(t.size_x * sizeof(double));
                 checkMalloc(t.values);
 
@@ -489,16 +491,18 @@ int main(void) {
                 int a = 0;
                 for(double i = t.min_x; i <= t.max_x; i += t.step) {
                     global_x = i;
-                    t.values[a] = calcTree(&mainOp);
-                    printf(" %.*f\t│ %.*f\n", precision, i, precision, t.values[a]);
-                    if(a == 0) {
-                        t.min_y = t.values[a];
-                        t.max_y = t.values[a];
-                    } else {
-                        t.min_y = t.values[a] < t.min_y ? t.values[a] : t.min_y;
-                        t.max_y = t.values[a] > t.max_y ? t.values[a] : t.max_y;
-                    }
+                    double y = calcTree(&mainOp);
+                    t.values[a] = y;
+                    printf(" %.*f\t│ %.*f\n", precision, i, precision, y);
                     a++;
+                    if(isnan(y) || isinf(y)) { continue; }
+                    if(a == 1) {
+                        t.min_y = y;
+                        t.max_y = y;
+                    } else {
+                        t.min_y = y < t.min_y ? y : t.min_y;
+                        t.max_y = y > t.max_y ? y : t.max_y;
+                    }
                 }
                 printf("\n");
                 free(mainOp.leftOp);
@@ -506,7 +510,7 @@ int main(void) {
 
                 // ask for plot
                 printf("plot? (y/n) ");
-                fgets(info, 5, stdin);
+                fgets(info, 10, stdin);
                 if(info[0] == 'y') {
                     plot(&t);
                 }
