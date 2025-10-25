@@ -19,6 +19,8 @@
 #define HIST 1598
 #define MODE 1617
 #define M 109
+#define HELP 1564
+#define H 104
 
 #define SIMPLE 6997
 #define S 115
@@ -428,6 +430,18 @@ int main(void) {
                         default: printf("mode doesn't exist!\n"); continue;
                     }
                 } 
+                case H:
+                case HELP: {
+                    printf("available commands:\n");
+                    printf("  :x, :exit       exit the program\n");
+                    printf("  :p, :precision  set the decimal precision of results\n");
+                    printf("      :hist       view the last 5 calculations\n");
+                    printf("  :m, :mode       change the calculation mode\n\n");
+                    printf("available modes:\n");
+                    printf("  s,  simple      simple evaluation of expressions\n");
+                    printf("  f,  function    solving a function for x\n\n");
+                    continue;
+                }
                 default: printf("command doesn't exist!\n"); continue;
             }
         }
